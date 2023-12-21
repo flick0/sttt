@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+
+# a solution to your terminal transition tribulations
+
+import curses
+from curses import wrapper
+
+import time
+
+############################################################################################################
+# Cubic Bezier Easing directly translated from https://github.com/gre/bezier-easing/blob/master/src/index.js
+############################################################################################################
+
+NEWTON_ITERATIONS = 4;
+NEWTON_MIN_SLOPE = 0.001;
+SUBDIVISION_PRECISION = 0.0000001;
+SUBDIVISION_MAX_ITERATIONS = 10;
+
+kSplineTableSize = 11;
+kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
+
+def A(aA1,aA2): return 1.0 - 3.0 * aA2 + 3.0 * aA1
+def B(aA1,aA2): return 3.0 * aA2 - 6.0 * aA1
+def C(aA1):     return 3.0 * aA1
+
+def calc_bezier(aT,aA1,aA2):
+        return ((A(aA1, aA2) * aT + B(aA1, aA2)) * aT + C(aA1)) * aT
+
+def getSlope(aT,aA1,aA2):
+        return 3.0 * A(aA1, aA2) * aT * aT + 2.0 * B(aA1, aA2) * aT + C(aA1)
+
+def binary_subdivide(aX,aA,aB,mX1,mX2):
+    currentX, currentT, i = 0,0,0
+    while True:
+        currentT = aA + (aB - aA) / 2.0
+        currentX = calc_bezier(currentT, mX1, mX2) - aX
+        if currentX > 0.0: aB = currentT
+        else: aA = currentT
+        i += 1
+        if abs(currentX) <= SUBDIVISION_PRECISION or i >= SUBDIVISION_MAX_ITERATIONS: break
+    return currentT
+
+def newton_raphson_iterate(aX,aGuessT,mX1,mX2):
+    for _ in range(NEWTON_ITERATIONS):
+        currentSlope = getSlope(aGuessT, mX1, mX2)
+        if abs(currentSlope) < SUBDIVISION_PRECISION: return aGuessT  # Use a tolerance value for comparison
+        currentX = calc_bezier(aGuessT, mX1, mX2) - aX
+        aGuessT -= currentX / currentSlope
+    return aGuessT
+
+def LinearEasing(aX):
+    return aX
+
+class CubicBezier:
+    def __init__(self,aX1,aY1,aX2,aY2):
+        self.mX1 = aX1
+        self.mY1 = aY1
+        self.mX2 = aX2
+        self.mY2 = aY2
+
+        self.sampleValues = [0] * kSplineTableSize
+        for i in range(kSplineTableSize):
+            self.sampleValues[i] = calc_bezier(i * kSampleStepSize, aX1, aX2)
+        
+    def get_t_for_x(self,aX):
+        intervalStart = 0.0
+        currentSample = 1
+        lastSample = kSplineTableSize - 1
+
+        while currentSample != lastSample and self.sampleValues[currentSample] <= aX:
+            intervalStart += kSampleStepSize
+            currentSample += 1
+        currentSample -= 1
+
+        dist = (aX - self.sampleValues[currentSample]) / (self.sampleValues[currentSample + 1] - self.sampleValues[currentSample])
+        guessForT = intervalStart + dist * kSampleStepSize
+
+        initialSlope = getSlope(guessForT, self.mX1, self.mX2)
+        if initialSlope >= NEWTON_MIN_SLOPE:
+            return newton_raphson_iterate(aX, guessForT, self.mX1, self.mX2)
+        elif abs(initialSlope) < SUBDIVISION_PRECISION:  # Use a tolerance value for comparison
+            return guessForT
+        else:
+            return binary_subdivide(aX, intervalStart, intervalStart + kSampleStepSize, self.mX1, self.mX2)
+        
+    def ease(self,aT):
+        if self.mX1 == self.mY1 and self.mX2 == self.mY2:
+            return LinearEasing(aT)
+        if aT == 0: return 0
+        if aT == 1: return 1
+        return calc_bezier(self.get_t_for_x(aT), self.mY1, self.mY2)
+
+############################################################################################################
+
+def set_pix(stdscr, x,y, char="█"):
+    height,width = stdscr.getmaxyx()
+    if x >= width:
+        return False
+    if y >= height:
+        return False
+    try:
+        stdscr.addstr(y, x, char)
+    except curses.error:
+        pass
+    return True
+
+class Transition:
+    screen: curses.window
+    width: int
+    height: int
+    duration: float
+    start_time: float
+    loop: bool
+    reverse: bool
+    debug: bool = False
+    bezier: callable
+
+    def __init__(self, screen:curses.window, duration:float, bezier:list[float,float,float,float]=[0.54,0.02,0.36,0.98], loop:bool = False,reverse:bool = False,debug:bool = False):
+        self.screen = screen
+        self.duration = duration
+        self.start_time = time.time()
+        self.height, self.width = screen.getmaxyx()
+        self.loop = loop
+        self.debug = debug
+        self.reverse = reverse
+        self.bezier = CubicBezier(*bezier).ease
+
+    def update_dim(self):
+        self.height, self.width = self.screen.getmaxyx()
+
+    def frame_for_instant(self, now:float):
+        time = (now - self.start_time)/self.duration
+        return self.frame_for_time(time)
+        
+    
+    def frame_for_time(self, time:float):
+        last_frame = False
+        if self.loop:
+            if self.reverse:
+                time = time%2
+                if time > 1:
+                    time = 2 - time
+            else:
+                time = time%1
+        elif time < 0:
+            time = 0
+        elif time >= 1:
+            time = 1
+            last_frame = True
+        bezier_time = self.bezier(time)
+        self.screen.clear()
+        for pix in range(self.height*self.width):
+            x = pix % self.width
+            y = pix // self.width
+            self.draw(x,y,time,bezier_time)
+        if self.debug:
+            set_pix(self.screen, 0,0,char="time: "+str(time))
+            set_pix(self.screen, 0,1,char="bezier_time: "+str(bezier_time))
+        self.screen.refresh()
+        return not last_frame
+
+    def draw(self,x,y, time, bezier_time):
+        set_pix(self.screen, x,y)
+        set_pix(self.screen, 0,0,char="time: "+str(time))
+        set_pix(self.screen, 0,1,char="bezier_time: "+str(bezier_time))
+
+############################################################################################################
+# Transitions
+############################################################################################################
+
+class ScanLine(Transition):
+    def draw(self,x,y,time, bezier_time):
+        current_line = int(bezier_time * self.height)
+        if y == current_line:
+            set_pix(self.screen, x,y)
+            
+class Grow(Transition):
+    center_x: int
+    center_y: int
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+    
+    def draw(self,x,y,time, bezier_time):
+        dist_x = abs(x - self.center_x)/2
+        dist_y = abs(y - self.center_y)
+        dist = (dist_x**2 + dist_y**2)**0.5
+
+        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+
+        if dist < bezier_time * max_dist:
+            set_pix(self.screen, x,y)
+
+class Shrink(Transition):
+    center_x: int
+    center_y: int
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+    
+    def draw(self,x,y,time, bezier_time):
+        dist_x = abs(x - self.center_x)/2
+        dist_y = abs(y - self.center_y)
+        dist = (dist_x**2 + dist_y**2)**0.5
+
+        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+
+        if dist < (1-bezier_time) * max_dist:
+            set_pix(self.screen, x,y)
+
+class GrowExit(Transition):
+    center_x: int
+    center_y: int
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+    
+    def draw(self,x,y,time, bezier_time):
+        dist_x = abs(x - self.center_x)/2
+        dist_y = abs(y - self.center_y)
+        dist = (dist_x**2 + dist_y**2)**0.5
+
+        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+
+        if bezier_time < 0.5:
+            if dist < (bezier_time*2) * max_dist:
+                set_pix(self.screen, x,y)
+        else:
+            if dist > (bezier_time%0.5*2) * max_dist:
+                set_pix(self.screen, x,y)
+
+class ShrinkExit(Transition):
+    center_x: int
+    center_y: int
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width//2
+        self.center_y = self.height//2
+    
+    def draw(self,x,y,time, bezier_time):
+        dist_x = abs(x - self.center_x)/2
+        dist_y = abs(y - self.center_y)
+        dist = (dist_x**2 + dist_y**2)**0.5
+
+        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+
+        if bezier_time < 0.5:
+            if dist > (1 - bezier_time*2) * max_dist:
+                set_pix(self.screen, x,y)
+        else:
+            if dist < (1 - bezier_time%0.5*2) * max_dist:
+                set_pix(self.screen, x,y)
+
+
+def main(stdscr):
+    # Clear screen
+    stdscr.clear()
+    curses.curs_set(0)
+    curses.start_color()
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_BLACK, -1)
+    
+    make_frame = True
+
+    transition = GrowExit(stdscr, 5, loop=False, bezier=[.79,.05,.04,.92], reverse = False, debug=False)
+
+    try:
+        while make_frame:
+            current_width,current_height = stdscr.getmaxyx()
+            if transition.width != current_width or transition.height != current_height:
+                transition.update_dim()
+            if not transition.frame_for_instant(time.time()):
+                break
+    except KeyboardInterrupt:
+        pass
+
+wrapper(main)
