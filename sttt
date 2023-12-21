@@ -179,13 +179,13 @@ class ScanLine(Transition):
 
     @dataclass
     class Options:
-        vertical: bool = False
+        vertical: bool = True
         """vertical scanline :0"""
         reverse: bool = False
         """start from the bottom/right"""
         width: int = 2
         """width of the scanline"""
-        scale_width: float = 1
+        scale_width: float = 1.1
         """width is increased by this amount as 'scale_ratio' is reached"""
         scale_ratio: float = 0.5
         """ratio where the width of scanline is maximum"""
@@ -201,19 +201,22 @@ class ScanLine(Transition):
         scale_width = self.options.scale_width-1
         scale_ratio = self.options.scale_ratio
 
-        if scale_width != 1:
-            thickness = thickness + (bezier_time,1-bezier_time)[bezier_time>scale_ratio]*(height,width)[vertical]*(scale_width)
+        path = [height,width][vertical]
+        pix_pos = [y,x][vertical]
+
+        if bezier_time <= scale_ratio:
+            thickness = thickness + scale_width * path * bezier_time/scale_ratio
+        else:
+            thickness = thickness + scale_width * path * ((1-bezier_time)/(1-scale_ratio))
 
         if reverse:
             bezier_time = 1 - bezier_time
 
-        if vertical:
-            if abs(x + thickness - (width + thickness*2)*bezier_time) < thickness:
-                set_pix(self.screen, x,y)
-        else:
+        if not vertical:
             thickness /= 2
-            if abs(y  + thickness - (height + thickness*2)*bezier_time) < thickness:
-                set_pix(self.screen, x,y)
+
+        if abs(pix_pos  + thickness - (path + thickness*2)*bezier_time) < thickness:
+            set_pix(self.screen, x,y)
 
 class Grow(Transition):
     center_x: int
@@ -389,6 +392,7 @@ class ShrinkExit(Transition):
 ############################################################################################################
 
 def main(stdscr):
+    import random
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
@@ -396,7 +400,14 @@ def main(stdscr):
     
     make_frame = True
 
-    transition = ScanLine(stdscr, 3, loop=False, bezier=[.66,.14,.41,.96], reverse = True, debug=True)
+    transition = ScanLine(stdscr, 0.5, loop=False, bezier=[.66,.14,.41,.96], reverse = True, debug=False)
+    transition.options = transition.Options(
+        vertical=True,
+        width=1,
+        scale_width=1.2,
+        scale_ratio=0.5,
+        reverse=True
+    )
 
     try:
         while make_frame:
