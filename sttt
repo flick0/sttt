@@ -5,6 +5,7 @@
 import curses
 from curses import wrapper
 
+from dataclasses import dataclass
 import time
 
 ############################################################################################################
@@ -115,6 +116,10 @@ class Transition:
     debug: bool = False
     bezier: callable
 
+    @dataclass
+    class Options:
+        ...
+
     def __init__(self, screen:curses.window, duration:float, bezier:list[float,float,float,float]=[0.54,0.02,0.36,0.98], loop:bool = False,reverse:bool = False,debug:bool = False):
         self.screen = screen
         self.duration = duration
@@ -124,6 +129,7 @@ class Transition:
         self.debug = debug
         self.reverse = reverse
         self.bezier = CubicBezier(*bezier).ease
+        self.options = self.Options()
 
     def update_dim(self):
         self.height, self.width = self.screen.getmaxyx()
@@ -170,88 +176,218 @@ class Transition:
 ############################################################################################################
 
 class ScanLine(Transition):
+
+    @dataclass
+    class Options:
+        vertical: bool = True
+        """vertical scanline :0"""
+        reverse: bool = True
+        """start from the bottom/right"""
+        width: int = 3
+        """width of the scanline"""
+        scale_width: float = 0.5
+        """width is increased by this amount as 'scale_ratio' is reached"""
+        scale_ratio: float = 0.5
+        """ratio where the width of scanline is maximum"""
+
     def draw(self,x,y,time, bezier_time):
-        current_line = int(bezier_time * self.height)
-        if y == current_line:
-            set_pix(self.screen, x,y)
+        width = self.width
+        height = self.height
 
-class Shrink(Transition):
-    center_x: int
-    center_y: int
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self.center_x = self.width//2
-        self.center_y = self.height//2
+        vertical = self.options.vertical
+        reverse = self.options.reverse
+        thickness = self.options.width
 
-    def update_dim(self):
-        super().update_dim()
-        self.center_x = self.width//2
-        self.center_y = self.height//2
-    
-    def draw(self,x,y,time, bezier_time):
-        dist_x = abs(x - self.center_x)/2
-        dist_y = abs(y - self.center_y)
-        dist = (dist_x**2 + dist_y**2)**0.5
+        scale_width = self.options.scale_width
+        scale_ratio = self.options.scale_ratio
 
-        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+        if scale_width != 1:
+            thickness = thickness + (bezier_time,1-bezier_time)[bezier_time>scale_ratio]*(height,width)[vertical]*(scale_width)
 
-        if dist < (1-bezier_time) * max_dist:
-            set_pix(self.screen, x,y)
+        if reverse:
+            bezier_time = 1 - bezier_time
+
+        if vertical:
+
+            if abs(x + thickness - (width + thickness*2)*bezier_time) < thickness:
+                set_pix(self.screen, x,y)
+        else:
+            thickness /= 2
+            if abs(y  + thickness - (height + thickness*2)*bezier_time) < thickness:
+                set_pix(self.screen, x,y)
 
 class Grow(Transition):
     center_x: int
     center_y: int
+
+    @dataclass
+    class Options:
+        center: tuple[float,float] = (.5,.5)
+        """center of the circle as a ratio between 0 and 1"""
+
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.center_x = self.width//2
-        self.center_y = self.height//2
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
 
     def update_dim(self):
         super().update_dim()
-        self.center_x = self.width//2
-        self.center_y = self.height//2
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
     
     def draw(self,x,y,time, bezier_time):
         dist_x = abs(x - self.center_x)/2
         dist_y = abs(y - self.center_y)
         dist = (dist_x**2 + dist_y**2)**0.5
 
-        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+        max_dist = (((max(self.center_x,self.width-self.center_x))/2)**2 + (max(self.center_y,self.height-self.center_y))**2)**0.5
 
-        if bezier_time < 0.5:
-            if dist < (bezier_time*2) * max_dist:
-                set_pix(self.screen, x,y)
-        else:
-            if dist > (bezier_time%0.5*2) * max_dist:
-                set_pix(self.screen, x,y)
+        if dist > bezier_time * max_dist:
+            set_pix(self.screen, x,y)
 
 class Shrink(Transition):
     center_x: int
     center_y: int
+
+    @dataclass
+    class Options:
+        center: tuple[float,float] = (.5,.5)
+        """center of the circle as a ratio between 0 and 1"""
+
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.center_x = self.width//2
-        self.center_y = self.height//2
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
 
     def update_dim(self):
         super().update_dim()
-        self.center_x = self.width//2
-        self.center_y = self.height//2
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
     
     def draw(self,x,y,time, bezier_time):
         dist_x = abs(x - self.center_x)/2
         dist_y = abs(y - self.center_y)
         dist = (dist_x**2 + dist_y**2)**0.5
 
-        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
+        max_dist = (((max(self.center_x,self.width-self.center_x))/2)**2 + (max(self.center_y,self.height-self.center_y))**2)**0.5
 
-        if bezier_time < 0.5:
-            if dist > (1 - bezier_time*2) * max_dist:
+        if dist < (1-bezier_time) * max_dist:
+            set_pix(self.screen, x,y)
+
+class GrowExit(Transition):
+    center_x: int
+    center_y: int
+
+    center_x2: int
+    center_y2: int
+
+    @dataclass
+    class Options:
+        center: tuple[float,float] = (.5,.5)
+        """center of the first circle"""
+        center2: tuple[float,float] = (-1,-1)
+        """center of the second circle, if negative, defaults to same coord as first circle"""
+        second_start: float = 0.5
+        """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
+
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
+        self.center_x2 = self.center_x if self.options.center2[0] < 0 else self.width*self.options.center2[0]
+        self.center_y2 = self.center_y if self.options.center2[1] < 0 else self.height*self.options.center2[1]
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
+        self.center_x2 = self.center_x if self.options.center2[0] < 0 else self.width*self.options.center2[0]
+        self.center_y2 = self.center_y if self.options.center2[1] < 0 else self.height*self.options.center2[1]
+    
+    def draw(self,x,y,time, bezier_time):
+        second_start = self.options.second_start
+        center_x = self.center_x
+        center_y = self.center_y
+        center_x2 = self.center_x2
+        center_y2 = self.center_y2
+        width = self.width
+        height = self.height
+
+        if bezier_time < second_start:
+            dist_x = abs(x - center_x)/2
+            dist_y = abs(y - center_y)
+            dist = (dist_x**2 + dist_y**2)**0.5
+
+            max_dist = (((max(center_x,width-center_x))/2)**2 + (max(center_y,height-center_y))**2)**0.5
+            if dist < bezier_time/second_start * max_dist:
                 set_pix(self.screen, x,y)
         else:
-            if dist < (1 - bezier_time%0.5*2) * max_dist:
+            dist_x = abs(x - center_x2)/2
+            dist_y = abs(y - center_y2)
+            dist = (dist_x**2 + dist_y**2)**0.5
+
+            max_dist = (((max(center_x2,width-center_x2))/2)**2 + (max(center_y2,height-center_y2))**2)**0.5
+            if dist > (bezier_time-second_start)/(1-second_start) * max_dist:
                 set_pix(self.screen, x,y)
 
+class ShrinkExit(Transition):
+    center_x: int
+    center_y: int
+
+    center_x2: int
+    center_y2: int
+
+    @dataclass
+    class Options:
+        center: tuple[float,float] = (.5,.5)
+        """center of the first circle"""
+        center2: tuple[float,float] = (-1,-1)
+        """center of the second circle, if negative, defaults to same coord as first circle"""
+        second_start: float = 0.5
+        """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
+
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
+        self.center_x2 = self.center_x if self.options.center2[0] < 0 else self.width*self.options.center2[0]
+        self.center_y2 = self.center_y if self.options.center2[1] < 0 else self.height*self.options.center2[1]
+
+    def update_dim(self):
+        super().update_dim()
+        self.center_x = self.width*self.options.center[0]
+        self.center_y = self.height*self.options.center[1]
+        self.center_x2 = self.center_x if self.options.center2[0] < 0 else self.width*self.options.center2[0]
+        self.center_y2 = self.center_y if self.options.center2[1] < 0 else self.height*self.options.center2[1]
+    
+    def draw(self,x,y,time, bezier_time):
+        second_start = self.options.second_start
+        center_x = self.center_x
+        center_y = self.center_y
+        center_x2 = self.center_x2
+        center_y2 = self.center_y2
+        width = self.width
+        height = self.height
+
+        if bezier_time < second_start:
+            dist_x = abs(x - center_x)/2
+            dist_y = abs(y - center_y)
+            dist = (dist_x**2 + dist_y**2)**0.5
+
+            max_dist = (((max(center_x,width-center_x))/2)**2 + (max(center_y,height-center_y))**2)**0.5
+            if dist > (1 - bezier_time * (1/second_start)) * max_dist:
+                set_pix(self.screen, x,y)
+        else:
+            dist_x = abs(x - center_x2)/2
+            dist_y = abs(y - center_y2)
+            dist = (dist_x**2 + dist_y**2)**0.5
+
+            max_dist = (((max(center_x2,width-center_x2))/2)**2 + (max(center_y2,height-center_y2))**2)**0.5
+            if dist < (1 - (bezier_time-second_start)/(1-second_start)) * max_dist:
+                set_pix(self.screen, x,y)
+            
+
+############################################################################################################
 
 def main(stdscr):
     curses.curs_set(0)
@@ -261,7 +397,7 @@ def main(stdscr):
     
     make_frame = True
 
-    transition = Shrink(stdscr, 0.5, loop=False, bezier=[.66,.14,.41,.96], reverse = False, debug=True)
+    transition = ScanLine(stdscr, 3, loop=False, bezier=[.66,.14,.41,.96], reverse = True, debug=True)
 
     try:
         while make_frame:
