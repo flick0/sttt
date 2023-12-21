@@ -179,13 +179,13 @@ class ScanLine(Transition):
 
     @dataclass
     class Options:
-        vertical: bool = True
+        vertical: bool = False
         """vertical scanline :0"""
-        reverse: bool = True
+        reverse: bool = False
         """start from the bottom/right"""
-        width: int = 3
+        width: int = 2
         """width of the scanline"""
-        scale_width: float = 0.5
+        scale_width: float = 1
         """width is increased by this amount as 'scale_ratio' is reached"""
         scale_ratio: float = 0.5
         """ratio where the width of scanline is maximum"""
@@ -198,7 +198,7 @@ class ScanLine(Transition):
         reverse = self.options.reverse
         thickness = self.options.width
 
-        scale_width = self.options.scale_width
+        scale_width = self.options.scale_width-1
         scale_ratio = self.options.scale_ratio
 
         if scale_width != 1:
@@ -208,7 +208,6 @@ class ScanLine(Transition):
             bezier_time = 1 - bezier_time
 
         if vertical:
-
             if abs(x + thickness - (width + thickness*2)*bezier_time) < thickness:
                 set_pix(self.screen, x,y)
         else:
