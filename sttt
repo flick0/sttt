@@ -43,7 +43,7 @@ def binary_subdivide(aX,aA,aB,mX1,mX2):
 def newton_raphson_iterate(aX,aGuessT,mX1,mX2):
     for _ in range(NEWTON_ITERATIONS):
         currentSlope = getSlope(aGuessT, mX1, mX2)
-        if abs(currentSlope) < SUBDIVISION_PRECISION: return aGuessT  # Use a tolerance value for comparison
+        if abs(currentSlope) < SUBDIVISION_PRECISION: return aGuessT
         currentX = calc_bezier(aGuessT, mX1, mX2) - aX
         aGuessT -= currentX / currentSlope
     return aGuessT
@@ -78,7 +78,7 @@ class CubicBezier:
         initialSlope = getSlope(guessForT, self.mX1, self.mX2)
         if initialSlope >= NEWTON_MIN_SLOPE:
             return newton_raphson_iterate(aX, guessForT, self.mX1, self.mX2)
-        elif abs(initialSlope) < SUBDIVISION_PRECISION:  # Use a tolerance value for comparison
+        elif abs(initialSlope) < SUBDIVISION_PRECISION:
             return guessForT
         else:
             return binary_subdivide(aX, intervalStart, intervalStart + kSampleStepSize, self.mX1, self.mX2)
@@ -131,7 +131,6 @@ class Transition:
     def frame_for_instant(self, now:float):
         time = (now - self.start_time)/self.duration
         return self.frame_for_time(time)
-        
     
     def frame_for_time(self, time:float):
         last_frame = False
@@ -154,15 +153,17 @@ class Transition:
             y = pix // self.width
             self.draw(x,y,time,bezier_time)
         if self.debug:
-            set_pix(self.screen, 0,0,char="time: "+str(time))
-            set_pix(self.screen, 0,1,char="bezier_time: "+str(bezier_time))
+            set_pix(self.screen, 0,0,char=f"time: {time:.4f}")
+            set_pix(self.screen, 0,1,char=f"bezier_time: {bezier_time:.4f}")
+            set_pix(self.screen, 0,2,char=f"width: {self.width} height: {self.height}")
         self.screen.refresh()
         return not last_frame
 
     def draw(self,x,y, time, bezier_time):
         set_pix(self.screen, x,y)
-        set_pix(self.screen, 0,0,char="time: "+str(time))
-        set_pix(self.screen, 0,1,char="bezier_time: "+str(bezier_time))
+        set_pix(self.screen, 0,0,char=f"time: {time:.4f}")
+        set_pix(self.screen, 0,1,char=f"bezier_time: {bezier_time:.4f}")
+        set_pix(self.screen, 0,2,char=f"width: {self.width} height: {self.height}")
 
 ############################################################################################################
 # Transitions
@@ -172,29 +173,6 @@ class ScanLine(Transition):
     def draw(self,x,y,time, bezier_time):
         current_line = int(bezier_time * self.height)
         if y == current_line:
-            set_pix(self.screen, x,y)
-            
-class Grow(Transition):
-    center_x: int
-    center_y: int
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self.center_x = self.width//2
-        self.center_y = self.height//2
-
-    def update_dim(self):
-        super().update_dim()
-        self.center_x = self.width//2
-        self.center_y = self.height//2
-    
-    def draw(self,x,y,time, bezier_time):
-        dist_x = abs(x - self.center_x)/2
-        dist_y = abs(y - self.center_y)
-        dist = (dist_x**2 + dist_y**2)**0.5
-
-        max_dist = ((self.width/4)**2 + (self.height/2)**2)**0.5
-
-        if dist < bezier_time * max_dist:
             set_pix(self.screen, x,y)
 
 class Shrink(Transition):
@@ -220,7 +198,7 @@ class Shrink(Transition):
         if dist < (1-bezier_time) * max_dist:
             set_pix(self.screen, x,y)
 
-class GrowExit(Transition):
+class Grow(Transition):
     center_x: int
     center_y: int
     def __init__(self,*args,**kwargs):
@@ -247,7 +225,7 @@ class GrowExit(Transition):
             if dist > (bezier_time%0.5*2) * max_dist:
                 set_pix(self.screen, x,y)
 
-class ShrinkExit(Transition):
+class Shrink(Transition):
     center_x: int
     center_y: int
     def __init__(self,*args,**kwargs):
@@ -276,8 +254,6 @@ class ShrinkExit(Transition):
 
 
 def main(stdscr):
-    # Clear screen
-    stdscr.clear()
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
@@ -285,7 +261,7 @@ def main(stdscr):
     
     make_frame = True
 
-    transition = GrowExit(stdscr, 5, loop=False, bezier=[.79,.05,.04,.92], reverse = False, debug=False)
+    transition = Shrink(stdscr, 0.5, loop=False, bezier=[.66,.14,.41,.96], reverse = False, debug=True)
 
     try:
         while make_frame:
