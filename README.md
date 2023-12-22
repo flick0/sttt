@@ -1,3 +1,5 @@
+> still kindof wip (hasnt even got a proper cli yet, all options need to be set in the source)
+
 # A Solution to your Terminal Transition Tribulation
 
 ever wanted to add cool transitions to your terminals? no? well let me present to you the solution to a [tribulation](https://letmegooglethat.com/?q=tribulation) you didnt even know you were in
