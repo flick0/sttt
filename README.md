@@ -12,6 +12,22 @@ ever wanted to add cool transitions to your terminals? no? well let me present t
 + [ ] more transitions
 + [ ] actual cli
 
+## Installing
+
+the entire thing is just one file so you can curl/wget it and add to path
+
+using curl:
+```sh
+sudo curl -L https://raw.githubusercontent.com/flick0/sttt/master/sttt -o /usr/local/bin/sttt
+sudo chmod a+rx /usr/local/bin/sttt
+```
+
+or with wget:
+```sh
+sudo wget https://raw.githubusercontent.com/flick0/sttt/master/sttt -o /usr/local/bin/sttt
+sudo chmod a+rx /usr/local/bin/sttt
+```
+
 ## Transitions
 
 > ill add a few gifs here soon, the names also might change later on
