@@ -31,7 +31,7 @@ sudo chmod a+rx /usr/local/bin/sttt
 ## Transitions
 
 + ScanLine
-  > scanline with reverse set to `true`, `width` as `2`, `scale_width` as `1.1`, and `scale_ratio` as `0.5` meaning the width is gonna scale by `1.1` with the maximum width at `0.5`
+  > scanline with vertical set to `true`,reverse set to `true`, `width` as `2`, `scale_width` as `1.1`, and `scale_ratio` as `0.5` meaning the width is gonna scale by `1.1` with the maximum width at `0.5`
   ![scanline](https://github.com/flick0/sttt/assets/77581181/d501dc17-7b23-4704-8404-1f44ab753ee8)
 
 + Grow
