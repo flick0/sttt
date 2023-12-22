@@ -1,4 +1,3 @@
-
 # A Solution to your Terminal Transition Tribulation
 
 ever wanted to add cool transitions to your terminals? no? well let me present to you the solution to a [tribulation](https://letmegooglethat.com/?q=tribulation) you didnt even know you were in
@@ -33,14 +32,25 @@ sudo chmod a+rx /usr/local/bin/sttt
 > ill add a few gifs here soon, the names also might change later on
 
 + ScanLine
+  > scanline with reverse set to `true`
+  ![scanline](https://github.com/flick0/sttt/assets/77581181/d501dc17-7b23-4704-8404-1f44ab753ee8)
 
 + Grow
-
+  > ![grow](https://github.com/flick0/sttt/assets/77581181/b67bf986-99c7-4d72-9fa9-8be4d02ffa71)
+  
 + Shrink
+  > shrink with center position set to `[0.9,0.5]` meaning its at 90% width and 50% height
+  ![shrink](https://github.com/flick0/sttt/assets/77581181/94600752-6ee0-48eb-855a-62a0c38a6093)
 
 + GrowExit
+  > growexit with center of first circle set as `[0.3,0.3]` and `[0.7,0.7]` for the second circle
+  ![growexit](https://github.com/flick0/sttt/assets/77581181/804732b0-63c8-470e-9581-631804aaeb77)
+
 
 + ShrinkExit
+  > shrinkexit with `second_start` set to `0.9` meaning 90% of duration is used for first circle and the rest 10% for the second circle
+  ![shrinkexit](https://github.com/flick0/sttt/assets/77581181/e452a474-3d1e-473d-b3f4-c628be14feee)
+
 
 ## Why?
 
