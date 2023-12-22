@@ -5,6 +5,7 @@ ever wanted to add cool transitions to your terminals? no? well let me present t
 ## Features + Roadmap
 
 + [x] cubic bezier easing
++ [x] reactive to terminal size
 + [x] loop/reverse transitions
 + [x] set duration for transition
 + [x] transitions
@@ -29,8 +30,6 @@ sudo chmod a+rx /usr/local/bin/sttt
 
 ## Transitions
 
-> ill add a few gifs here soon, the names also might change later on
-
 + ScanLine
   > scanline with reverse set to `true`
   ![scanline](https://github.com/flick0/sttt/assets/77581181/d501dc17-7b23-4704-8404-1f44ab753ee8)
@@ -50,6 +49,11 @@ sudo chmod a+rx /usr/local/bin/sttt
 + ShrinkExit
   > shrinkexit with `second_start` set to `0.9` meaning 90% of duration is used for first circle and the rest 10% for the second circle
   ![shrinkexit](https://github.com/flick0/sttt/assets/77581181/e452a474-3d1e-473d-b3f4-c628be14feee)
+
+## its also reactive to terminal size changes!
+  > GrowExit transition with loop and reverse enabled
+    ![resize](https://github.com/flick0/sttt/assets/77581181/7d52b7d1-5968-46a7-94a2-d9e44e25bd35)
+
 
 
 ## Why?
