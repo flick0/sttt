@@ -1,3 +1,5 @@
+> still kindof wip (hasnt even got a proper cli yet, all options need to be set in the source)
+
 # A Solution to your Terminal Transition Tribulation
 
 ever wanted to add cool transitions to your terminals? no? well let me present to you the solution to a [tribulation](https://letmegooglethat.com/?q=tribulation) you didnt even know you were in
@@ -5,6 +7,7 @@ ever wanted to add cool transitions to your terminals? no? well let me present t
 ## Features + Roadmap
 
 + [x] cubic bezier easing
++ [x] reactive to terminal size
 + [x] loop/reverse transitions
 + [x] set duration for transition
 + [x] transitions
@@ -29,10 +32,8 @@ sudo chmod a+rx /usr/local/bin/sttt
 
 ## Transitions
 
-> ill add a few gifs here soon, the names also might change later on
-
 + ScanLine
-  > scanline with reverse set to `true`
+  > scanline with vertical set to `true`,reverse set to `true`, `width` as `2`, `scale_width` as `1.1`, and `scale_ratio` as `0.5` meaning the width is gonna scale by `1.1` with the maximum width at `0.5`
   ![scanline](https://github.com/flick0/sttt/assets/77581181/d501dc17-7b23-4704-8404-1f44ab753ee8)
 
 + Grow
@@ -50,6 +51,11 @@ sudo chmod a+rx /usr/local/bin/sttt
 + ShrinkExit
   > shrinkexit with `second_start` set to `0.9` meaning 90% of duration is used for first circle and the rest 10% for the second circle
   ![shrinkexit](https://github.com/flick0/sttt/assets/77581181/e452a474-3d1e-473d-b3f4-c628be14feee)
+
+## its also reactive to terminal size changes!
+  > GrowExit transition with loop and reverse enabled
+    ![resize](https://github.com/flick0/sttt/assets/77581181/7d52b7d1-5968-46a7-94a2-d9e44e25bd35)
+
 
 
 ## Why?
