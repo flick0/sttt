@@ -12,7 +12,7 @@ ever wanted to add cool transitions to your terminals? no? well let me present t
 + [x] set duration for transition
 + [x] transitions
 + [ ] more transitions
-+ [ ] actual cli
++ [x] actual cli
 
 ## Installing
 
