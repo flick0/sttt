@@ -3,10 +3,12 @@
 # a solution to your terminal transition tribulations
 
 import curses
+import argparse
 from curses import wrapper
 
 from dataclasses import dataclass
 import time
+import inspect
 
 ############################################################################################################
 # Cubic Bezier Easing directly translated from https://github.com/gre/bezier-easing/blob/master/src/index.js
@@ -218,15 +220,15 @@ class ScanLine(Transition):
     @dataclass
     class Options:
         vertical: bool = True
-        """vertical scanline :0"""
+        _vertical_help = """vertical scanline :0"""
         reverse: bool = False
-        """start from the bottom/right"""
+        _reverse_help = """start from the bottom/right"""
         width: int = 2
-        """width of the scanline"""
+        _width_help = """width of the scanline"""
         scale_width: float = 1.1
-        """width is increased by this amount as 'scale_ratio' is reached"""
+        _scale_width_help = """width is increased by this amount as 'scale_ratio' is reached"""
         scale_ratio: float = 0.5
-        """ratio where the width of scanline is maximum"""
+        _scale_ratio_help = """ratio where the width of scanline is maximum"""
 
     def draw(self, x, y, time, bezier_time):
         width = self.width
@@ -266,7 +268,7 @@ class Grow(Transition):
     @dataclass
     class Options:
         center: tuple[float, float] = (0.5, 0.5)
-        """center of the circle as a ratio between 0 and 1"""
+        _center_help = """center of the circle as a ratio between 0 and 1"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -299,7 +301,7 @@ class Shrink(Transition):
     @dataclass
     class Options:
         center: tuple[float, float] = (0.5, 0.5)
-        """center of the circle as a ratio between 0 and 1"""
+        _center_help = """center of the circle as a ratio between 0 and 1"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -335,11 +337,11 @@ class GrowExit(Transition):
     @dataclass
     class Options:
         center: tuple[float, float] = (0.5, 0.5)
-        """center of the first circle"""
+        _center_help = """center of the first circle"""
         center2: tuple[float, float] = (-1, -1)
-        """center of the second circle, if negative, defaults to same coord as first circle"""
+        _center2_help = """center of the second circle, if negative, defaults to same coord as first circle"""
         second_start: float = 0.5
-        """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
+        _second_start_help = """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -414,11 +416,11 @@ class ShrinkExit(Transition):
     @dataclass
     class Options:
         center: tuple[float, float] = (0.5, 0.5)
-        """center of the first circle"""
+        _center_help = """center of the first circle"""
         center2: tuple[float, float] = (-1, -1)
-        """center of the second circle, if negative, defaults to same coord as first circle"""
+        _center2_help = """center of the second circle, if negative, defaults to same coord as first circle"""
         second_start: float = 0.5
-        """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
+        _second_start_help = """when the second circle starts to grow and the first circle ends as a ratio between 0 and 1"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -488,26 +490,38 @@ class ShrinkExit(Transition):
 
 ############################################################################################################
 
-
-def main(stdscr):
+def _main(stdscr,args):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_BLACK, -1)
-
     make_frame = True
 
-    transition = ScanLine(
-        stdscr,
-        0.5,
-        loop=False,
-        bezier=[0.66, 0.14, 0.41, 0.96],
-        reverse=True,
-        debug=False,
-    )
-    transition.options = transition.Options(
-        vertical=True, width=1, scale_width=1.2, scale_ratio=0.5, reverse=True
-    )
+    match args.transition:
+        case "scanline":
+            transition = ScanLine(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "scanline"
+        case "grow":
+            transition = Grow(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "grow"
+        case "shrink":
+            transition = Shrink(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "shrink"
+        case "growexit":
+            transition = GrowExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "growexit"
+        case "shrinkexit":
+            transition = ShrinkExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "shrinkexit"
+        case _:
+            transition = Transition(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug)
+            transition_name = "transition"
+
+    transition.options = transition.Options()
+    
+    for field in transition.Options.__dataclass_fields__.keys():
+        if getattr(args,f"{transition_name}_{field}"):
+            setattr(transition.options,field,getattr(args,f"{transition_name}_{field}"))
 
     try:
         while make_frame:
@@ -520,4 +534,83 @@ def main(stdscr):
         pass
 
 
-wrapper(main)
+def main():
+    
+    parser = argparse.ArgumentParser(
+                    prog='STTT',
+                    description='a solution to your terminal transition tribulation'
+            )
+    
+    transitions = [ScanLine, Grow, Shrink, GrowExit, ShrinkExit]
+    transition_names = [t.__name__.lower() for t in transitions]
+
+    parser.add_argument(
+        'transition',
+        type=str,
+        choices=transition_names,
+        help='transition to use',
+    )
+
+    parser.add_argument(
+        '-d',
+        '--duration',
+        type=float,
+        default=1,
+        help='duration of transition',
+    )
+
+    parser.add_argument(
+        '-b',
+        '--bezier',
+        type=float,
+        nargs=4,
+        default=[0.54, 0.02, 0.36, 0.98],
+        help='bezier curve for transition',
+    )
+
+    parser.add_argument(
+        '-l',
+        '--loop',
+        action='store_true',
+        help='loop transition',
+    )
+
+    parser.add_argument(
+        '-r',
+        '--reverse',
+        action='store_true',
+        help='reverse transition',
+    )
+
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='show debug info',
+    )
+
+    def to_tuple(s,t=float):
+        return tuple(map(t,s.split(",")))
+
+    for transition in transitions:
+        for field in transition.Options.__dataclass_fields__.keys():
+            if isinstance(getattr(transition.Options, field),tuple):
+                parser.add_argument(
+                    f'--{transition.__name__.lower().replace("_","-")}-{field.replace("_","-")}',
+                    type=to_tuple,
+                    help=(getattr(transition.Options, f"_{field}_help")),
+                )
+            else: 
+                parser.add_argument(
+                    f'--{transition.__name__.lower().replace("_","-")}-{field.replace("_","-")}',
+                    type=type(getattr(transition.Options, field)),
+                    help=(getattr(transition.Options, f"_{field}_help")),
+                )
+
+
+
+    args = parser.parse_args()
+
+    wrapper(_main,args)
+
+if __name__ == "__main__":
+    main()
