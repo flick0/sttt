@@ -127,7 +127,6 @@ def init_colors():
         curses.init_pair(i + 1, i, -1)
 
 def set_pix(stdscr, x, y, char="█", color=8):
-    init_colors()
     height, width = stdscr.getmaxyx()
     if x >= width:
         return False
@@ -176,6 +175,7 @@ class Transition:
         self.bezier = CubicBezier(*bezier).ease
         self.color = color
         self.options = self.Options()
+        init_colors()
 
     def update_dim(self):
         self.height, self.width = self.screen.getmaxyx()
