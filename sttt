@@ -307,7 +307,7 @@ class Doom(Transition):
                 if dist < dist_sink:
                     nearest_sink = sink
                     dist_sink = dist
-            y = int(y+height*bezier_time/self.sink[nearest_sink] + dist_sink/2*(bezier_time*4))
+            y = int(y+height*bezier_time/self.sink[nearest_sink] + dist_sink/max(self.sink.values())*(bezier_time))
             set_pix(self.screen, x, y, color=self.color)
 
 
