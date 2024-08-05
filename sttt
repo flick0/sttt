@@ -133,7 +133,7 @@ def set_pix(stdscr, x, y, char="█", color=8):
     if y >= height:
         return False
     try:
-        stdscr.addstr(y, x, char, curses.color_pair(color))
+        stdscr.addstr(y, x, char, color)
     except curses.error:
         pass
     return True
@@ -173,9 +173,9 @@ class Transition:
         self.debug = debug
         self.reverse = reverse
         self.bezier = CubicBezier(*bezier).ease
-        self.color = color
         self.options = self.Options()
         init_colors()
+        self.color = curses.color_pair(color)
 
     def update_dim(self):
         self.height, self.width = self.screen.getmaxyx()
