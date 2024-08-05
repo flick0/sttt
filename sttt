@@ -9,6 +9,7 @@ from curses import wrapper
 from dataclasses import dataclass
 import time
 import inspect
+import random
 
 ############################################################################################################
 # Cubic Bezier Easing directly translated from https://github.com/gre/bezier-easing/blob/master/src/index.js
@@ -159,7 +160,7 @@ class Transition:
         self,
         screen: curses.window,
         duration: float,
-        bezier: list[float, float, float, float] = [0.54, 0.02, 0.36, 0.98],
+        bezier: str,
         loop: bool = False,
         reverse: bool = False,
         debug: bool = False,
@@ -172,6 +173,9 @@ class Transition:
         self.loop = loop
         self.debug = debug
         self.reverse = reverse
+
+        bezier = [float(i) for i in bezier.split(",")]
+
         self.bezier = CubicBezier(*bezier).ease
         self.options = self.Options()
         init_colors()
@@ -269,7 +273,46 @@ class ScanLine(Transition):
         if abs(pix_pos + thickness - (path + thickness * 2) * bezier_time) < thickness:
             set_pix(self.screen, x, y, color=self.color)
 
+class Doom(Transition):
+    sink= []
+    # @dataclass
+    # class Options:
+    #     vertical: bool = True
+    #     _vertical_help = """vertical scanline :0"""
+    #     reverse: bool = False
+    #     _reverse_help = """start from the bottom/right"""
+    #     width: int = 2
+    #     _width_help = """width of the scanline"""
+    #     scale_width: float = 1.1
+    #     _scale_width_help = """width is increased by this amount as 'scale_ratio' is reached"""
+    #     scale_ratio: float = 0.5
+    #     _scale_ratio_help = """ratio where the width of scanline is maximum"""
 
+    def draw(self, x, y, time, bezier_time):
+        width = self.width
+        height = self.height
+
+        if not self.sink:
+            self.sink = {random.randint(1,width):random.randint(5,10)/10 for i in range(width//2)}
+        
+        bezier_time += 1 - max(self.sink.values())
+
+        if x in self.sink.keys():
+            set_pix(self.screen, x, int(y+height*bezier_time/self.sink[x]), color=self.color)
+        else:
+            nearest_sink = 0
+            dist_sink = width
+            for sink in self.sink.keys():
+                dist = abs(x-sink)
+                if dist < dist_sink:
+                    nearest_sink = sink
+                    dist_sink = dist
+            y = int(y+height*bezier_time/self.sink[nearest_sink] + dist_sink/2*(bezier_time*4))
+            set_pix(self.screen, x, y, color=self.color)
+
+
+                
+        
 class Grow(Transition):
     center_x: int
     center_y: int
@@ -508,22 +551,25 @@ def _main(stdscr,args):
 
     match args.transition:
         case "scanline":
-            transition = ScanLine(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = ScanLine(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "scanline"
         case "grow":
-            transition = Grow(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = Grow(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "grow"
         case "shrink":
-            transition = Shrink(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = Shrink(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "shrink"
         case "growexit":
-            transition = GrowExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = GrowExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "growexit"
         case "shrinkexit":
-            transition = ShrinkExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = ShrinkExit(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "shrinkexit"
+        case "doom":
+            transition = Doom(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
+            transition_name = "doom"
         case _:
-            transition = Transition(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color)
+            transition = Transition(stdscr, args.duration, loop=args.loop, reverse=args.reverse, debug=args.debug, color=args.color, bezier=args.bezier)
             transition_name = "transition"
 
     transition.options = transition.Options()
@@ -550,7 +596,7 @@ def main():
                     description='a solution to your terminal transition tribulation'
             )
     
-    transitions = [ScanLine, Grow, Shrink, GrowExit, ShrinkExit]
+    transitions = [ScanLine, Grow, Shrink, GrowExit, ShrinkExit,Doom]
     transition_names = [t.__name__.lower() for t in transitions]
 
     parser.add_argument(
@@ -580,9 +626,8 @@ def main():
     parser.add_argument(
         '-b',
         '--bezier',
-        type=float,
-        nargs=4,
-        default=[0.54, 0.02, 0.36, 0.98],
+        type=str,
+        default="0.54,0.02,0.36,0.98",
         help='bezier curve for transition',
     )
 
